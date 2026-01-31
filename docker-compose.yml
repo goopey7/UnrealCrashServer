@@ -1,0 +1,15 @@
+services:
+  unreal-crash-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./crashes:/crashes
+    environment:
+      - RUST_LOG=info # log level
+      #- BASE_URL: "https://example.com" # base URL for admin/internal web ui (only required for discord notification links)
+      #- CRASH_REPORT_DISCORD: "<discord-webhook-url>" # webhook url for discord notifications
+    ports:
+      - "8080:8080" # public-facing crash endpoint
+      - "8081:8081" # admin/internal web-ui showing crashes
+    restart: unless-stopped

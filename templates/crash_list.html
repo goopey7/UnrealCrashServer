@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Crash Reports</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 2rem;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #111827;
+        }
+
+        .summary {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .search-container {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            width: 60%;
+            max-width: 400px;
+            padding: 0.6rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s ease-in-out;
+        }
+
+        .search-input:focus {
+            border-color: #2563eb;
+        }
+
+        .crash-list {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .crash-row {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            transition: transform 0.1s ease-in-out, background 0.1s ease-in-out;
+            cursor: pointer;
+        }
+
+        .crash-row:hover {
+            transform: translateY(-3px);
+            background: #f3f4f6;
+        }
+
+        .timestamp {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #1f2937;
+        }
+
+        .error-preview {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 5%;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 900px;
+            max-height: 80%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            border: none;
+            background: none;
+        }
+
+        .close-btn:hover {
+            color: #111827;
+        }
+
+        .crash-detail {
+            margin: 0.75rem 0;
+        }
+
+        .crash-detail strong {
+            color: #111827;
+        }
+
+        pre.callstack {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: monospace;
+            line-height: 1.4;
+        }
+
+        ul.file-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul.file-list li {
+            margin: 0.25rem 0;
+        }
+
+        a.download-link {
+            text-decoration: none;
+            color: #2563eb;
+            font-weight: 500;
+        }
+
+        a.download-link:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+
+        .no-crashes {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Crash Reports</h1>
+
+{% if crashes.is_empty() %}
+    <div class="no-crashes">No Crashes Found</div>
+{% else %}
+    <div class="summary">
+        Total Crashes: <strong>{{ crashes.len() }}</strong>
+    </div>
+
+    <div class="search-container">
+        <input id="search" class="search-input" type="text" placeholder="Search by timestamp, error, or user description..." oninput="filterCrashes()">
+    </div>
+
+    <div class="crash-list">
+        {% for crash in crashes %}
+            <div class="crash-row" 
+                 data-timestamp="{{ crash.timestamp | lower }}" 
+                 data-error="{{ crash.overview.error | lower }}"
+                 data-user-description="{{ crash.overview.user_description | lower }}"
+                 onclick="openModal('{{ crash.timestamp }}')">
+                <div class="timestamp">{{ crash.timestamp }}</div>
+                <div class="error-preview">{{ crash.overview.error }}</div>
+            </div>
+
+            <!-- Modal -->
+            <div id="modal-{{ crash.timestamp }}" class="modal">
+                <div class="modal-content">
+                    <button class="close-btn" onclick="closeModal('{{ crash.timestamp }}')">&times;</button>
+                    <h2>Crash at {{ crash.timestamp }}</h2>
+                    <div class="crash-detail"><strong>Error:</strong> {{ crash.overview.error }}</div>
+                    <div class="crash-detail"><strong>User Description:</strong> {{ crash.overview.user_description }}</div>
+                    <div class="crash-detail"><strong>Callstack:</strong></div>
+                    <pre class="callstack">{{ crash.overview.callstack }}</pre>
+
+                    {% if crash.overview.files.is_empty() %}
+                        <div class="crash-detail"><em>No files available</em></div>
+                    {% else %}
+                        <div class="crash-detail"><strong>Files:</strong></div>
+                        <ul class="file-list">
+                            {% for file in crash.overview.files %}
+                                <li>
+                                    <a class="download-link" href="/download/{{ crash.timestamp }}/{{ file }}" download>
+                                        {{ file }}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<script>
+function openModal(timestamp) {
+    const modal = document.getElementById(`modal-${timestamp}`);
+    if (modal) {
+        modal.classList.add('open');
+        history.replaceState(null, '', `#${timestamp}`);
+    }
+}
+
+function closeModal(timestamp) {
+    const modal = document.getElementById(`modal-${timestamp}`);
+    if (modal) {
+        modal.classList.remove('open');
+        history.replaceState(null, '', window.location.pathname);
+    }
+}
+
+// Close modal by clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('open');
+        history.replaceState(null, '', window.location.pathname);
+    }
+});
+
+// Search/filter
+function filterCrashes() {
+    const query = document.getElementById('search').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.crash-row');
+    rows.forEach(row => {
+        const ts = row.dataset.timestamp;
+        const err = row.dataset.error;
+        const userDesc = row.dataset.userDescription;
+        row.style.display = (ts.includes(query) || err.includes(query) || userDesc.includes(query)) ? '' : 'none';
+    });
+}
+
+// Auto-open modal from hash
+window.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash.slice(1);
+    if (hash) openModal(hash);
+});
+</script>
+
+</body>
+</html>
