@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 ```
 Then fire up the server with `docker-compose up -d`
-The admin UI can be accessed over port 8081 (http://localhost:8080)
+The admin UI can be accessed over port 8081 (http://localhost:8081)
 
 > [!WARNING]
 > The server is intended to be run behind a secure reverse proxy if exposed publicly
